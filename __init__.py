@@ -2,7 +2,7 @@ bl_info = {
     "name": "Even Quad Sphere",
     "description": "Special case of quad sphere which maximizes equality of edge lengths",
     "author": "Zyl",
-    "version": (1, 0),
+    "version": (1, 1),
     "blender": (2, 93, 0),
     "category": "Add Mesh"
 }

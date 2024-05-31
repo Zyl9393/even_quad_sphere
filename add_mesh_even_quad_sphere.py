@@ -1,19 +1,18 @@
 import bpy
 from bpy_extras import object_utils
-from itertools import permutations
 from math import (
-        copysign, pi,
-        sqrt, tan,
+        pi, sqrt,
         )
 from bpy.types import Operator
 from bpy.props import (
         BoolProperty,
-        EnumProperty,
         FloatProperty,
-        FloatVectorProperty,
         IntProperty,
-        StringProperty,
         )
+from mathutils import (
+        Vector,
+        Quaternion,
+)
 
 
 def even_quad_sphere(slices, size):
@@ -26,77 +25,77 @@ def even_quad_sphere(slices, size):
     vertIndex = 0
 
     # Top
-    for z in range(0, slices + 1):
-        for x in range(0, slices + 1):
-            i = x + z * lines
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
             sideVerts[0][i] = vertIndex
             vertIndex = vertIndex + 1
             verts.append([0.0, 0.0, 0.0])
 
     # Front
-    for y in range(0, slices + 1):
-        for x in range(0, slices + 1):
-            i = x + y * lines
-            if y == slices:
-                sideVerts[1][i] = sideVerts[0][x]
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
+            if v == lines - 1:
+                sideVerts[1][i] = sideVerts[0][u]
             else:
                 sideVerts[1][i] = vertIndex
                 vertIndex = vertIndex + 1
                 verts.append([0.0, 0.0, 0.0])
 
     # Right
-    for y in range(0, slices + 1):
-        for z in range(0, slices + 1):
-            i = z + y * lines
-            if z == 0:
-                sideVerts[2][i] = sideVerts[1][i + slices]
-            elif y == slices:
-                sideVerts[2][i] = sideVerts[0][slices + z * lines]
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
+            if u == 0:
+                sideVerts[2][i] = sideVerts[1][v * lines + lines - 1]
+            elif v == lines - 1:
+                sideVerts[2][i] = sideVerts[0][u * lines + lines - 1]
             else:
                 sideVerts[2][i] = vertIndex
                 vertIndex = vertIndex + 1
                 verts.append([0.0, 0.0, 0.0])
 
     # Back
-    for y in range(0, slices + 1):
-        for x in range(0, slices + 1):
-            i = x + y * lines
-            if x == slices:
-                sideVerts [3][i] = sideVerts[2][i]
-            elif y == slices:
-                sideVerts [3][i] = sideVerts[0][i]
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
+            if u == 0:
+                sideVerts [3][i] = sideVerts[2][i + lines - 1]
+            elif v == lines - 1:
+                sideVerts [3][i] = sideVerts[0][lines * lines - 1 - u]
             else:
                 sideVerts [3][i] = vertIndex
                 vertIndex = vertIndex + 1
                 verts.append([0.0, 0.0, 0.0])
 
     # Left
-    for y in range(0, slices + 1):
-        for z in range(0, slices + 1):
-            i = z + y * lines
-            if z == 0:
-                sideVerts [4][i] = sideVerts [1][i]
-            elif y == slices:
-                sideVerts [4][i] = sideVerts [0][z * lines]
-            elif z == slices:
-                sideVerts [4][i] = sideVerts [3][i - slices]
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
+            if u == 0:
+                sideVerts [4][i] = sideVerts [3][i + lines - 1]
+            elif v == lines - 1:
+                sideVerts [4][i] = sideVerts [0][(lines - 1 - u) * lines]
+            elif u == lines - 1:
+                sideVerts [4][i] = sideVerts [1][i - lines + 1]
             else:
                 sideVerts [4][i] = vertIndex
                 vertIndex = vertIndex + 1
                 verts.append([0.0, 0.0, 0.0])
 
     # Bottom
-    for z in range(0, slices + 1):
-        for x in range(0, slices + 1):
-            i = x + z * lines
-            if z == 0:
-                sideVerts [5][i] = sideVerts [1][x]
-            elif z == slices:
-                sideVerts [5][i] = sideVerts [3][x]
-            elif x == slices:
-                sideVerts [5][i] = sideVerts [2][z]
-            elif x == 0:
-                sideVerts [5][i] = sideVerts [4][z]
+    for v in range(0, lines):
+        for u in range(0, lines):
+            i = u + v * lines
+            if v == 0:
+                sideVerts [5][i] = sideVerts [3][lines - 1 - u]
+            elif v == lines - 1:
+                sideVerts [5][i] = sideVerts [1][u]
+            elif u == 0:
+                sideVerts [5][i] = sideVerts [4][v]
+            elif u == lines - 1:
+                sideVerts [5][i] = sideVerts [2][lines - 1 - v]
             else:
                 sideVerts [5][i] = vertIndex
                 vertIndex = vertIndex + 1
@@ -105,46 +104,53 @@ def even_quad_sphere(slices, size):
     faces = []
     tempVerts = []
     for s in range(0, 6):
-        invertedWinding = (s == 3) or (s == 4) or (s == 5)
         for y in range(0, slices):
             for x in range(0, slices):
                 i = x + y * lines
                 tempVerts.clear()
-                if invertedWinding:
-                    tempVerts.append(sideVerts[s][i])
-                    tempVerts.append(sideVerts[s][i + 1])
-                    tempVerts.append(sideVerts[s][i + 1 + lines])
-                    tempVerts.append(sideVerts[s][i + lines])
-                else:
-                    tempVerts.append(sideVerts[s][i])
-                    tempVerts.append(sideVerts[s][i + lines])
-                    tempVerts.append(sideVerts[s][i + lines + 1])
-                    tempVerts.append(sideVerts[s][i + 1])
+                tempVerts.append(sideVerts[s][i])
+                tempVerts.append(sideVerts[s][i + 1])
+                tempVerts.append(sideVerts[s][i + 1 + lines])
+                tempVerts.append(sideVerts[s][i + lines])
                 faces.append(tuple(tempVerts))
 
-    sides = ((0, 1, 0), (0, 0, -1), (1, 0, 0), (0, 0, 1), (-1, 0, 0), (0, -1, 0))
-    xDirections = ((1, 0, 0), (1, 0, 0), (0, 0, 1), (1, 0, 0), (0, 0, 1), (1, 0, 0))
-    yDirections = ((0, 0, 1), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 1, 0), (0, 0, 1))
-    quarterPi = pi / 4
+    # Top, Front, Right, Back, Left, Bottom
+    sides = ((0, 0, 1), (0, -1, 0), (1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, 0, -1))
+    uDirections = ((1, 0, 0), (1, 0, 0), (0, 1, 0), (-1, 0, 0), (0, -1, 0), (1, 0, 0))
+    # vDirections = ((0, 1, 0), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, -1, 0)) # not used
+
+    cornerArcAngle = Vector((0, 1, 1)).angle(Vector((1, 1, 1)))
     for s in range(0, 6):
-        side = sides[s]
-        xDir = xDirections[s]
-        yDir = yDirections[s]
-        for y in range(0, slices + 1):
-            for x in range(0, slices + 1):
-                i = x + y * lines
-
-                # Range -1 to 1.
-                xLinear = (2 * x - slices) / slices
-                yLinear = (2 * y - slices) / slices
-
-                # More even distribution
-                xLinear = tan(xLinear * quarterPi)
-                yLinear = tan(yLinear * quarterPi)
-                
-                newPos = [side[i] + xLinear * xDir[i] + yLinear * yDir[i] for i in range(0, 3)]
-                newPosLen = (newPos[0]*newPos[0] + newPos[1]*newPos[1] + newPos[2]*newPos[2]) ** (1/2)
-                newPos = [newPos[i] / newPosLen for i in range(0, 3)]
+        side = Vector(sides[s])
+        uDir = Vector(uDirections[s])
+        # vDir = Vector(vDirections[s])
+        for v in range(0, lines):
+            vLinear = (2 * v - slices) / slices
+            
+            p0 = (side - uDir).normalized()
+            p1 = (side + uDir).normalized()
+            pCenter = Vector(side)
+            
+            p0.rotate(Quaternion(side + uDir, -cornerArcAngle * vLinear))
+            p1.rotate(Quaternion(side - uDir, cornerArcAngle * vLinear))
+            pCenter.rotate(Quaternion(uDir, -pi / 4 * vLinear))
+            
+            zDelta = pCenter - 0.5 * (p0 + p1)
+            slantAngle = side.angle(zDelta)
+            slantAngle = -slantAngle if vLinear < 0 else slantAngle
+            span = Vector(side)
+            span.rotate(Quaternion(uDir, -slantAngle))
+            rotAxis = span.cross(uDir).normalized()
+            
+            ringSegmentDist = pCenter.dot(rotAxis)
+            ringSegmentRadius = sqrt(1.0 - ringSegmentDist * ringSegmentDist) # equal to sin(acos(ringSegmentDist))
+            arcAngle = 2 * zDelta.angle(p0 - (pCenter - ringSegmentRadius * zDelta.normalized()))
+            
+            for u in range(0, lines):
+                newPos = Vector(p0)
+                rotation = Quaternion(rotAxis, arcAngle * (u / slices))
+                newPos.rotate(rotation)
+                i = u + v * lines
                 verts[sideVerts[s][i]][0] = newPos[0]
                 verts[sideVerts[s][i]][1] = newPos[1]
                 verts[sideVerts[s][i]][2] = newPos[2]
